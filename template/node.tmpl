@@ -1,0 +1,14 @@
+object Host "{{.Hostname}}" {
+	import "generic-host"
+	address = "{{.Dns}}"
+	display_name = "{{.Displayname}}"
+
+	vars.os = "AWS"
+	groups = ["AWS"]
+	vars.notification["mail"] = {
+		groups = [ "icingaadmins" ]
+	}
+	vars.client_endpoint = name
+	vars.id = "{{.Instanceid}}"
+	vars.hostname = "{{.Dns}}"
+}
