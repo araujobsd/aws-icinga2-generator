@@ -46,6 +46,7 @@ type configdata struct {
 func createTemplate(confdata configdata) error {
 	var err error
 
+	fmt.Printf("===> Instance: %s\n", confdata.Displayname)
 	newcp := fmt.Sprintf("output/%s.conf", confdata.Instanceid)
 
 	t, err := template.ParseFiles("template/node.tmpl")
@@ -83,7 +84,7 @@ func describeTags(instanceID string) AwsDataTags {
 	return awstags
 }
 
-func listEC2() error {
+func listEC2() [][]AwsData {
 	var awsdata [][]AwsData
 	var configdata configdata
 
@@ -97,28 +98,46 @@ func listEC2() error {
 
 	json.Unmarshal(cmdout, &awsdata)
 
-	for _, data := range awsdata {
-		if data[0].State.Name == "running" {
-			awsdatatags := describeTags(data[0].InstanceID)
-			if len(awsdatatags.Tags) > 1 {
-				configdata.Displayname = fmt.Sprintf("%s-%s", awsdatatags.Tags[1].Value, data[0].InstanceID)
-			} else {
-				configdata.Displayname = fmt.Sprintf("%s-%s", awsdatatags.Tags[0].Value, data[0].InstanceID)
+	awsdata_cp := make(chan [][]AwsData)
+	for {
+		if len(awsdata) <= 1 {
+			break
+		}
+
+		go queueConsumer(awsdata, awsdata_cp)
+
+		if awsdata_cp != nil {
+			awsdata = <-awsdata_cp
+			if awsdata[0][0].State.Name == "running" {
+				awsdatags := describeTags(awsdata[0][0].InstanceID)
+				if len(awsdatags.Tags) > 1 {
+					configdata.Displayname = fmt.Sprintf("%s-%s",
+						awsdatags.Tags[1].Value, awsdata[0][0].InstanceID)
+				} else {
+					configdata.Displayname = fmt.Sprintf("%s-%s",
+						awsdatags.Tags[0].Value, awsdata[0][0].InstanceID)
+				}
+
+				configdata.Hostname = awsdata[0][0].PublicDNSName
+				configdata.Dns = awsdata[0][0].PublicDNSName
+				configdata.Instanceid = awsdata[0][0].InstanceID
+				configdata.Hostname = awsdata[0][0].PublicDNSName
+
+				createTemplate(configdata)
 			}
-
-			configdata.Hostname = data[0].PublicDNSName
-			configdata.Dns = data[0].PublicDNSName
-			configdata.Instanceid = data[0].InstanceID
-			configdata.Hostdns = data[0].PublicDNSName
-
-			fmt.Printf("===> Instance: %s\n", configdata.Displayname)
-
-			createTemplate(configdata)
-
+		} else {
+			break
 		}
 	}
 
-	return nil
+	return awsdata
+}
+
+func queueConsumer(awsdata [][]AwsData, awsdata_cp chan [][]AwsData) {
+	if len(awsdata) > 1 {
+		awsdata = awsdata[1:]
+		awsdata_cp <- awsdata
+	}
 }
 
 func main() {
