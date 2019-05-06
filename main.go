@@ -84,9 +84,50 @@ func describeTags(instanceID string) AwsDataTags {
 	return awstags
 }
 
+func queueConsumer(awsdata [][]AwsData, awsdata_cp chan [][]AwsData) {
+	if len(awsdata) > 1 {
+		awsdata = awsdata[1:]
+		awsdata_cp <- awsdata
+	}
+}
+
+func createConfig(awsdata [][]AwsData) {
+	var configdata configdata
+
+	awsdata_cp := make(chan [][]AwsData)
+	for {
+		if len(awsdata) <= 1 {
+			break
+		}
+
+		go queueConsumer(awsdata, awsdata_cp)
+
+		if awsdata_cp == nil {
+			break
+		}
+
+		awsdata = <-awsdata_cp
+		if awsdata[0][0].State.Name == "running" {
+			awsdatags := describeTags(awsdata[0][0].InstanceID)
+			if len(awsdatags.Tags) > 1 {
+				configdata.Displayname = fmt.Sprintf("%s-%s",
+					awsdatags.Tags[1].Value, awsdata[0][0].InstanceID)
+			} else {
+				configdata.Displayname = fmt.Sprintf("%s-%s",
+					awsdatags.Tags[0].Value, awsdata[0][0].InstanceID)
+			}
+			configdata.Hostname = awsdata[0][0].PublicDNSName
+			configdata.Dns = awsdata[0][0].PublicDNSName
+			configdata.Instanceid = awsdata[0][0].InstanceID
+			configdata.Hostname = awsdata[0][0].PublicDNSName
+
+			go createTemplate(configdata)
+		}
+	}
+}
+
 func listEC2() [][]AwsData {
 	var awsdata [][]AwsData
-	var configdata configdata
 
 	cmdout, err := exec.Command(awscmd, "ec2", "describe-instances",
 		"--query", "Reservations[*].Instances[*]",
@@ -98,51 +139,13 @@ func listEC2() [][]AwsData {
 
 	json.Unmarshal(cmdout, &awsdata)
 
-	awsdata_cp := make(chan [][]AwsData)
-	for {
-		if len(awsdata) <= 1 {
-			break
-		}
-
-		go queueConsumer(awsdata, awsdata_cp)
-
-		if awsdata_cp != nil {
-			awsdata = <-awsdata_cp
-			if awsdata[0][0].State.Name == "running" {
-				awsdatags := describeTags(awsdata[0][0].InstanceID)
-				if len(awsdatags.Tags) > 1 {
-					configdata.Displayname = fmt.Sprintf("%s-%s",
-						awsdatags.Tags[1].Value, awsdata[0][0].InstanceID)
-				} else {
-					configdata.Displayname = fmt.Sprintf("%s-%s",
-						awsdatags.Tags[0].Value, awsdata[0][0].InstanceID)
-				}
-
-				configdata.Hostname = awsdata[0][0].PublicDNSName
-				configdata.Dns = awsdata[0][0].PublicDNSName
-				configdata.Instanceid = awsdata[0][0].InstanceID
-				configdata.Hostname = awsdata[0][0].PublicDNSName
-
-				createTemplate(configdata)
-			}
-		} else {
-			break
-		}
-	}
-
 	return awsdata
-}
-
-func queueConsumer(awsdata [][]AwsData, awsdata_cp chan [][]AwsData) {
-	if len(awsdata) > 1 {
-		awsdata = awsdata[1:]
-		awsdata_cp <- awsdata
-	}
 }
 
 func main() {
 	awsdata := listEC2()
 	if awsdata != nil {
+		createConfig(awsdata)
 		os.Exit(0)
 	} else {
 		os.Exit(1)
