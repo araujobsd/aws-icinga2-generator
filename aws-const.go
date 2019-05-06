@@ -32,9 +32,10 @@ import (
 )
 
 const (
-	aws_cmd = "/usr/bin/aws"
+	awscmd = "/usr/bin/aws"
 )
 
+// AwsDataTags - Get all tags structure
 type AwsDataTags struct {
 	Tags []struct {
 		Key          string `json:"Key"`
@@ -44,6 +45,7 @@ type AwsDataTags struct {
 	} `json:"Tags"`
 }
 
+// AwsData - Get all instances information
 type AwsData struct {
 	AmiLaunchIndex int       `json:"AmiLaunchIndex"`
 	ImageID        string    `json:"ImageId"`

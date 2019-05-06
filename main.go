@@ -72,7 +72,7 @@ func createTemplate(confdata configdata) error {
 func describeTags(instanceID string) AwsDataTags {
 	var awstags AwsDataTags
 
-	cmdout, err := exec.Command(aws_cmd, "ec2", "describe-tags", "--filters",
+	cmdout, err := exec.Command(awscmd, "ec2", "describe-tags", "--filters",
 		fmt.Sprintf("Name=resource-id,Values=%s", instanceID)).Output()
 
 	if err != nil {
@@ -88,7 +88,7 @@ func listEC2() [][]AwsData {
 	var awsdata [][]AwsData
 	var configdata configdata
 
-	cmdout, err := exec.Command(aws_cmd, "ec2", "describe-instances",
+	cmdout, err := exec.Command(awscmd, "ec2", "describe-instances",
 		"--query", "Reservations[*].Instances[*]",
 		"--output=json").Output()
 
