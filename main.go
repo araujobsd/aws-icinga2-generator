@@ -107,12 +107,18 @@ func createConfig(awsdata [][]AwsData) {
 		}
 
 		awsdata = <-awsdata_cp
-		if awsdata[0][0].State.Name == "running" {
+		if len(awsdata) > 0 && awsdata[0][0].State.Name == "running" {
 			awsdatags := describeTags(awsdata[0][0].InstanceID)
 			if len(awsdatags.Tags) > 1 {
 				configdata.Displayname = fmt.Sprintf("%s-%s",
 					awsdatags.Tags[1].Value, awsdata[0][0].InstanceID)
 			} else {
+				// DEBUG ONLY: When the instance has no Name
+				/*
+					fmt.Println("==========")
+					fmt.Println(awsdata[0][0].InstanceID)
+					fmt.Println("==========")
+				*/
 				configdata.Displayname = fmt.Sprintf("%s-%s",
 					awsdatags.Tags[0].Value, awsdata[0][0].InstanceID)
 			}
